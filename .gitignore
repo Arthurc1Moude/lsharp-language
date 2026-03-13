@@ -1,0 +1,52 @@
+# Compiled binaries
+*.o
+*.out
+*.exe
+*.dll
+*.so
+*.dylib
+lsharp-compiler
+lsharp-native
+massive_gen
+
+# Build directories
+build/
+bin/lsharp-native
+compiler/build/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Generated files
+lex.yy.c
+y.tab.c
+y.tab.h
+parser.tab.c
+parser.tab.h
+
+# Node modules (for syntax tools)
+node_modules/
+package-lock.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Test outputs
+test-output/
+*.test
+
+# OS files
+Thumbs.db
+.directory

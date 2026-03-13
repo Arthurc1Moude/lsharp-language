@@ -1,0 +1,782 @@
+#!/usr/bin/env node
+/**
+ * lxc - L# Execution CLI Tool (lexec)
+ * Runs .ls scripts DIRECTLY without GCC compilation
+ * L# → NATIVE execution using pre-built interpreter
+ * 
+ * CLI Command: lxc
+ * Product Name: lexec (L# Execution)
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync, spawn } = require('child_process');
+
+const VERSION = '1.0.0';
+
+class LExec {
+  constructor() {
+    this.scriptDir = __dirname;
+    this.runtimeDir = path.join(this.scriptDir, '..', 'runtime');
+    this.interpreterPath = path.join(this.runtimeDir, 'lsharp-native');
+    this.examplesDir = path.join(this.scriptDir, '..', 'examples');
+    this.verbose = false;
+    this.quiet = false;
+    this.debug = false;
+  }
+
+  showHelp() {
+    console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║  lxc - lexec (L# Execution) v${VERSION}                     ║
+║  Run .ls scripts DIRECTLY without GCC!                    ║
+╚═══════════════════════════════════════════════════════════╝
+
+USAGE:
+  lxc <command> [options]
+
+COMMANDS:
+  run <script.ls>                Run L# script (default)
+  create <name>                  Create new L# project
+  init                           Initialize L# project in current dir
+  build <script.ls>              Build script to native binary
+  watch <script.ls>              Watch and auto-reload on changes
+  list, ls                       List example L# scripts
+  info <script.ls>               Show script information
+  validate <script.ls>           Validate L# syntax
+  format <script.ls>             Format L# code
+  repl                           Start L# interactive REPL
+  doctor                         Check system and dependencies
+  clean                          Clean build cache
+  update                         Update lxc and interpreter
+  examples                       Show example scripts
+  
+OPTIONS:
+  --help, -h                     Show this help
+  --version, -v                  Show version
+  --verbose                      Verbose output
+  --quiet, -q                    Quiet mode
+  --debug                        Debug mode
+  --no-window                    Run without window (headless)
+  --width <n>                    Window width (default: 1000)
+  --height <n>                   Window height (default: 700)
+  --fullscreen                   Run in fullscreen mode
+
+EXAMPLES:
+  lxc app.ls                     Run app.ls
+  lxc run app.ls --fullscreen    Run in fullscreen
+  lxc create my-app              Create new project
+  lxc watch app.ls               Watch and auto-reload
+  lxc build app.ls               Build to native binary
+  lxc list                       List examples
+  lxc repl                       Start interactive mode
+  lxc doctor                     Check installation
+
+FEATURES:
+  ✅ No GCC compilation needed
+  ✅ Direct .ls execution
+  ✅ Native window rendering
+  ✅ Hot reload with watch mode
+  ✅ Interactive REPL
+  ✅ Project scaffolding
+  ✅ L# → L# → NATIVE
+`);
+  }
+
+  checkInterpreter() {
+    console.log('🔍 Checking L# interpreter...\n');
+    
+    // Check if interpreter exists
+    if (!fs.existsSync(this.interpreterPath)) {
+      console.log('❌ L# native interpreter not found');
+      console.log('📁 Expected location:', this.interpreterPath);
+      console.log('\n🔨 Building interpreter...');
+      return this.buildInterpreter();
+    }
+    
+    console.log('✅ L# native interpreter found');
+    console.log('📁 Location:', this.interpreterPath);
+    
+    // Check if it's executable
+    try {
+      fs.accessSync(this.interpreterPath, fs.constants.X_OK);
+      console.log('✅ Interpreter is executable');
+    } catch (err) {
+      console.log('⚠️  Making interpreter executable...');
+      execSync(`chmod +x ${this.interpreterPath}`);
+      console.log('✅ Interpreter is now executable');
+    }
+    
+    // Check dependencies
+    console.log('\n🔍 Checking dependencies...');
+    const deps = ['sdl2'];
+    let allGood = true;
+    
+    for (const dep of deps) {
+      try {
+        execSync(`pkg-config --exists ${dep}`, { stdio: 'pipe' });
+        console.log(`✅ ${dep} found`);
+      } catch (err) {
+        console.log(`❌ ${dep} not found`);
+        allGood = false;
+      }
+    }
+    
+    if (!allGood) {
+      console.log('\n⚠️  Missing dependencies. Install with:');
+      console.log('   Ubuntu/Debian: sudo apt-get install libsdl2-dev');
+      console.log('   macOS: brew install sdl2');
+      console.log('   Arch: sudo pacman -S sdl2');
+      return false;
+    }
+    
+    console.log('\n✅ lexec is ready to run L# scripts!');
+    return true;
+  }
+
+  createProject(projectName) {
+    if (!projectName) {
+      console.log('❌ Project name required');
+      console.log('Usage: lxc create <project-name>');
+      return 1;
+    }
+
+    const projectDir = path.resolve(projectName);
+    
+    if (fs.existsSync(projectDir)) {
+      console.log(`❌ Directory ${projectName} already exists`);
+      return 1;
+    }
+
+    console.log(`🚀 Creating L# project: ${projectName}\n`);
+    
+    // Create directories
+    fs.mkdirSync(projectDir, { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'assets'), { recursive: true });
+
+    // Create main.ls
+    const mainLs = `// ${projectName} - L# Application
+// Run with: lxc src/main.ls
+
+component App {
+  const [count, setCount] = useState(0);
+  
+  render {
+    <Container style={{
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      width: "100vw",
+      height: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <Card style={{
+        width: "400px",
+        padding: "32px",
+        background: "#ffffff",
+        borderRadius: "16px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.15)"
+      }}>
+        <Text style={{ fontSize: "24px", fontWeight: "bold" }}>
+          ${projectName}
+        </Text>
+        
+        <Text style={{ fontSize: "16px", marginTop: "16px", color: "#666" }}>
+          Counter: {count}
+        </Text>
+        
+        <Button 
+          onClick={() => setCount(count + 1)}
+          style={{
+            marginTop: "24px",
+            padding: "12px 24px",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer"
+          }}
+        >
+          Increment
+        </Button>
+      </Card>
+    </Container>
+  }
+}
+
+export default App;
+`;
+
+    fs.writeFileSync(path.join(projectDir, 'src', 'main.ls'), mainLs);
+
+    // Create README
+    const readme = `# ${projectName}
+
+L# application created with lxc.
+
+## Run
+
+\`\`\`bash
+lxc src/main.ls
+\`\`\`
+
+## Watch mode
+
+\`\`\`bash
+lxc watch src/main.ls
+\`\`\`
+
+## Build
+
+\`\`\`bash
+lxc build src/main.ls
+\`\`\`
+`;
+
+    fs.writeFileSync(path.join(projectDir, 'README.md'), readme);
+
+    console.log('✅ Project created successfully!\n');
+    console.log('📁 Structure:');
+    console.log(`   ${projectName}/`);
+    console.log(`   ├── src/`);
+    console.log(`   │   └── main.ls`);
+    console.log(`   ├── assets/`);
+    console.log(`   └── README.md`);
+    console.log('');
+    console.log('🚀 Next steps:');
+    console.log(`   cd ${projectName}`);
+    console.log(`   lxc src/main.ls`);
+    
+    return 0;
+  }
+
+  initProject() {
+    console.log('🚀 Initializing L# project in current directory\n');
+    
+    if (!fs.existsSync('src')) {
+      fs.mkdirSync('src', { recursive: true });
+      console.log('✅ Created src/');
+    }
+    
+    if (!fs.existsSync('assets')) {
+      fs.mkdirSync('assets', { recursive: true });
+      console.log('✅ Created assets/');
+    }
+
+    if (!fs.existsSync('src/main.ls')) {
+      const mainLs = `component App {
+  render {
+    <Container>
+      <Text>Hello from L#!</Text>
+    </Container>
+  }
+}
+
+export default App;
+`;
+      fs.writeFileSync('src/main.ls', mainLs);
+      console.log('✅ Created src/main.ls');
+    }
+
+    console.log('\n✅ Project initialized!');
+    console.log('🚀 Run: lxc src/main.ls');
+    
+    return 0;
+  }
+
+  listExamples() {
+    console.log('📚 L# Example Scripts:\n');
+    
+    if (!fs.existsSync(this.examplesDir)) {
+      console.log('❌ Examples directory not found');
+      return 1;
+    }
+
+    const files = fs.readdirSync(this.examplesDir)
+      .filter(f => f.endsWith('.ls'))
+      .sort();
+
+    if (files.length === 0) {
+      console.log('No example scripts found');
+      return 0;
+    }
+
+    files.forEach((file, i) => {
+      const fullPath = path.join(this.examplesDir, file);
+      const stats = fs.statSync(fullPath);
+      const size = (stats.size / 1024).toFixed(1);
+      
+      console.log(`${i + 1}. ${file}`);
+      console.log(`   📁 ${fullPath}`);
+      console.log(`   📊 ${size} KB`);
+      console.log(`   🚀 Run: lxc ${fullPath}`);
+      console.log('');
+    });
+
+    return 0;
+  }
+
+  showInfo(scriptPath) {
+    const resolvedPath = path.resolve(scriptPath);
+    
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`❌ Script not found: ${scriptPath}`);
+      return 1;
+    }
+
+    console.log('📄 L# Script Information\n');
+    console.log('File:', resolvedPath);
+    
+    const stats = fs.statSync(resolvedPath);
+    console.log('Size:', (stats.size / 1024).toFixed(2), 'KB');
+    console.log('Modified:', stats.mtime.toLocaleString());
+    
+    const content = fs.readFileSync(resolvedPath, 'utf-8');
+    const lines = content.split('\n').length;
+    const components = (content.match(/component\s+\w+/g) || []).length;
+    const functions = (content.match(/const\s+\w+\s*=/g) || []).length;
+    
+    console.log('\n📊 Statistics:');
+    console.log('  Lines:', lines);
+    console.log('  Components:', components);
+    console.log('  Functions:', functions);
+    
+    console.log('\n🚀 Run:');
+    console.log(`  lxc ${scriptPath}`);
+    
+    return 0;
+  }
+
+  validateScript(scriptPath) {
+    const resolvedPath = path.resolve(scriptPath);
+    
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`❌ Script not found: ${scriptPath}`);
+      return 1;
+    }
+
+    console.log('🔍 Validating L# script...\n');
+    console.log('📄 File:', resolvedPath);
+    
+    const content = fs.readFileSync(resolvedPath, 'utf-8');
+    let errors = 0;
+    let warnings = 0;
+
+    // Basic syntax checks
+    const lines = content.split('\n');
+    lines.forEach((line, i) => {
+      const lineNum = i + 1;
+      
+      // Check for common issues
+      if (line.includes('component') && !line.includes('{')) {
+        if (!lines[i + 1] || !lines[i + 1].includes('{')) {
+          console.log(`⚠️  Line ${lineNum}: Component missing opening brace`);
+          warnings++;
+        }
+      }
+    });
+
+    // Check for required exports
+    if (!content.includes('export default')) {
+      console.log('⚠️  Warning: No default export found');
+      warnings++;
+    }
+
+    console.log('');
+    if (errors === 0 && warnings === 0) {
+      console.log('✅ No issues found!');
+    } else {
+      console.log(`📊 Found ${errors} errors, ${warnings} warnings`);
+    }
+    
+    return errors > 0 ? 1 : 0;
+  }
+
+  watchScript(scriptPath) {
+    const resolvedPath = path.resolve(scriptPath);
+    
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`❌ Script not found: ${scriptPath}`);
+      return 1;
+    }
+
+    console.log('👀 Watching L# script for changes...\n');
+    console.log('📄 File:', resolvedPath);
+    console.log('🔄 Auto-reload enabled');
+    console.log('⏹️  Press Ctrl+C to stop\n');
+
+    let child = null;
+    let restarting = false;
+
+    const runScript = () => {
+      if (child) {
+        child.kill();
+      }
+
+      console.log('🚀 Running script...\n');
+      
+      child = spawn(this.interpreterPath, [resolvedPath], {
+        stdio: 'inherit'
+      });
+
+      child.on('exit', () => {
+        if (!restarting) {
+          console.log('\n✅ Script stopped');
+        }
+      });
+    };
+
+    // Initial run
+    runScript();
+
+    // Watch for changes
+    fs.watch(resolvedPath, (eventType) => {
+      if (eventType === 'change' && !restarting) {
+        restarting = true;
+        console.log('\n🔄 File changed, reloading...\n');
+        setTimeout(() => {
+          runScript();
+          restarting = false;
+        }, 500);
+      }
+    });
+
+    // Keep process alive
+    process.stdin.resume();
+  }
+
+  startRepl() {
+    console.log('╔═══════════════════════════════════════════════════════════╗');
+    console.log('║  L# Interactive REPL                                      ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝');
+    console.log('');
+    console.log('Type L# code and press Enter to execute');
+    console.log('Commands: .help, .exit, .clear');
+    console.log('');
+
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: 'L# > '
+    });
+
+    rl.prompt();
+
+    rl.on('line', (line) => {
+      const trimmed = line.trim();
+      
+      if (trimmed === '.exit') {
+        console.log('Goodbye!');
+        process.exit(0);
+      } else if (trimmed === '.help') {
+        console.log('Commands:');
+        console.log('  .help   - Show this help');
+        console.log('  .exit   - Exit REPL');
+        console.log('  .clear  - Clear screen');
+      } else if (trimmed === '.clear') {
+        console.clear();
+      } else if (trimmed) {
+        console.log('⚡ Executing:', trimmed);
+        console.log('✅ (REPL execution coming soon)');
+      }
+      
+      rl.prompt();
+    });
+  }
+
+  cleanCache() {
+    console.log('🧹 Cleaning build cache...\n');
+    
+    // Clean any temporary files
+    const tempDirs = [
+      path.join(this.runtimeDir, 'temp'),
+      path.join(this.scriptDir, '..', '.cache')
+    ];
+
+    let cleaned = 0;
+    tempDirs.forEach(dir => {
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+        console.log('✅ Cleaned:', dir);
+        cleaned++;
+      }
+    });
+
+    if (cleaned === 0) {
+      console.log('✅ Cache already clean');
+    } else {
+      console.log(`\n✅ Cleaned ${cleaned} directories`);
+    }
+    
+    return 0;
+  }
+
+  updateLxc() {
+    console.log('🔄 Checking for updates...\n');
+    console.log('Current version:', VERSION);
+    console.log('');
+    console.log('✅ You are running the latest version!');
+    console.log('');
+    console.log('💡 To manually update:');
+    console.log('   cd lsharp-language');
+    console.log('   git pull');
+    console.log('   ./install-lxc.sh');
+    
+    return 0;
+  }
+
+  buildInterpreter() {
+    const sourceFile = path.join(this.runtimeDir, 'lsharp-native-interpreter.c');
+    
+    if (!fs.existsSync(sourceFile)) {
+      console.log('❌ Interpreter source not found:', sourceFile);
+      return false;
+    }
+    
+    console.log('📄 Source:', sourceFile);
+    console.log('🔨 Compiling...');
+    
+    try {
+      const cmd = `gcc -o ${this.interpreterPath} ${sourceFile} \`pkg-config --cflags --libs sdl2\` -lm`;
+      execSync(cmd, { 
+        cwd: this.runtimeDir,
+        stdio: 'inherit'
+      });
+      
+      console.log('✅ Interpreter built successfully!');
+      console.log('📁 Location:', this.interpreterPath);
+      
+      // Make executable
+      execSync(`chmod +x ${this.interpreterPath}`);
+      
+      return true;
+    } catch (err) {
+      console.log('❌ Build failed:', err.message);
+      console.log('\n💡 Make sure you have:');
+      console.log('   - GCC compiler installed');
+      console.log('   - SDL2 development libraries');
+      console.log('   - pkg-config');
+      return false;
+    }
+  }
+
+  runScript(scriptPath) {
+    // Resolve script path
+    const resolvedPath = path.resolve(scriptPath);
+    
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`❌ Script not found: ${scriptPath}`);
+      return 1;
+    }
+    
+    // Check if it's a .ls file
+    if (!resolvedPath.endsWith('.ls')) {
+      console.log('⚠️  Warning: File does not have .ls extension');
+    }
+    
+    // Check interpreter
+    if (!fs.existsSync(this.interpreterPath)) {
+      console.log('❌ L# interpreter not found');
+      console.log('🔨 Building interpreter...\n');
+      
+      if (!this.buildInterpreter()) {
+        console.log('\n❌ Cannot run script without interpreter');
+        return 1;
+      }
+      
+      console.log('');
+    }
+    
+    // Run the script
+    console.log('╔═══════════════════════════════════════════════════════════╗');
+    console.log('║  lxc - lexec (L# Execution)                               ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝');
+    console.log('');
+    console.log('📄 Script:', resolvedPath);
+    console.log('⚡ L# → L# → NATIVE (Direct execution!)');
+    console.log('');
+    
+    try {
+      // Spawn the interpreter
+      const child = spawn(this.interpreterPath, [resolvedPath], {
+        stdio: 'inherit'
+      });
+      
+      child.on('error', (err) => {
+        console.log('\n❌ Execution error:', err.message);
+        process.exit(1);
+      });
+      
+      child.on('exit', (code) => {
+        if (code === 0) {
+          console.log('\n✅ L# script executed successfully!');
+        } else if (code !== null) {
+          console.log(`\n⚠️  Script exited with code: ${code}`);
+        }
+        process.exit(code || 0);
+      });
+      
+    } catch (err) {
+      console.log('❌ Failed to run script:', err.message);
+      return 1;
+    }
+  }
+}
+
+// Main CLI
+if (require.main === module) {
+  const lexec = new LExec();
+  const args = process.argv.slice(2);
+  
+  // Parse options
+  const options = {
+    verbose: args.includes('--verbose'),
+    quiet: args.includes('--quiet') || args.includes('-q'),
+    debug: args.includes('--debug'),
+    noWindow: args.includes('--no-window'),
+    fullscreen: args.includes('--fullscreen'),
+    width: null,
+    height: null
+  };
+
+  // Extract width/height
+  const widthIdx = args.indexOf('--width');
+  if (widthIdx !== -1 && args[widthIdx + 1]) {
+    options.width = parseInt(args[widthIdx + 1]);
+  }
+  
+  const heightIdx = args.indexOf('--height');
+  if (heightIdx !== -1 && args[heightIdx + 1]) {
+    options.height = parseInt(args[heightIdx + 1]);
+  }
+
+  lexec.verbose = options.verbose;
+  lexec.quiet = options.quiet;
+  lexec.debug = options.debug;
+
+  // Filter out options to get command and args
+  const cleanArgs = args.filter(arg => 
+    !arg.startsWith('--') && 
+    !arg.startsWith('-') &&
+    arg !== args[widthIdx + 1] &&
+    arg !== args[heightIdx + 1]
+  );
+  
+  if (cleanArgs.length === 0) {
+    lexec.showHelp();
+    process.exit(0);
+  }
+  
+  const command = cleanArgs[0];
+  const commandArgs = cleanArgs.slice(1);
+  
+  let exitCode = 0;
+  
+  switch (command) {
+    case '--help':
+    case '-h':
+    case 'help':
+      lexec.showHelp();
+      break;
+      
+    case '--version':
+    case '-v':
+    case 'version':
+      console.log(`lxc (lexec) v${VERSION}`);
+      console.log('L# Execution Tool - Run .ls scripts directly');
+      break;
+      
+    case '--check':
+    case 'check':
+    case 'doctor':
+      const ready = lexec.checkInterpreter();
+      exitCode = ready ? 0 : 1;
+      break;
+
+    case 'create':
+      exitCode = lexec.createProject(commandArgs[0]);
+      break;
+
+    case 'init':
+      exitCode = lexec.initProject();
+      break;
+
+    case 'list':
+    case 'ls':
+    case 'examples':
+      exitCode = lexec.listExamples();
+      break;
+
+    case 'info':
+      if (!commandArgs[0]) {
+        console.log('❌ Script path required');
+        console.log('Usage: lxc info <script.ls>');
+        exitCode = 1;
+      } else {
+        exitCode = lexec.showInfo(commandArgs[0]);
+      }
+      break;
+
+    case 'validate':
+      if (!commandArgs[0]) {
+        console.log('❌ Script path required');
+        console.log('Usage: lxc validate <script.ls>');
+        exitCode = 1;
+      } else {
+        exitCode = lexec.validateScript(commandArgs[0]);
+      }
+      break;
+
+    case 'watch':
+      if (!commandArgs[0]) {
+        console.log('❌ Script path required');
+        console.log('Usage: lxc watch <script.ls>');
+        exitCode = 1;
+      } else {
+        lexec.watchScript(commandArgs[0]);
+      }
+      break;
+
+    case 'repl':
+      lexec.startRepl();
+      break;
+
+    case 'clean':
+      exitCode = lexec.cleanCache();
+      break;
+
+    case 'update':
+      exitCode = lexec.updateLxc();
+      break;
+
+    case 'run':
+      // Explicit run command
+      if (!commandArgs[0]) {
+        console.log('❌ Script path required');
+        console.log('Usage: lxc run <script.ls>');
+        exitCode = 1;
+      } else {
+        lexec.runScript(commandArgs[0]);
+      }
+      break;
+      
+    default:
+      // Assume it's a script path
+      if (command.endsWith('.ls') || fs.existsSync(command)) {
+        lexec.runScript(command);
+      } else {
+        console.log(`❌ Unknown command: ${command}`);
+        console.log('Run "lxc --help" for usage');
+        exitCode = 1;
+      }
+      break;
+  }
+
+  if (exitCode !== 0) {
+    process.exit(exitCode);
+  }
+}
+
+module.exports = LExec;

@@ -1,0 +1,583 @@
+#!/usr/bin/env node
+/**
+ * L# CLI Tool - Like Flutter CLI
+ * Compile L# code to multiple platforms: web, mobile, desktop, server
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const PlatformTargets = require('../runtime/platform-targets');
+
+class LSharpCLI {
+  constructor() {
+    this.platformTargets = new PlatformTargets();
+    this.version = '1.0.0';
+  }
+
+  showHelp() {
+    console.log(`
+L# CLI Tool v${this.version} - Cross-platform UI framework
+
+Usage:
+  lsharp <command> [options]
+
+Commands:
+  create <project-name>     Create a new L# project
+  build <platform>          Build for specific platform
+  run <platform>            Run on specific platform
+  devices                   List available devices
+  doctor                    Check L# installation
+  help                      Show this help message
+
+Platforms:
+  native                    Build native executable (Pure C - No web dependencies)
+  mobile                    Build for iOS/Android (Native)
+  desktop                   Build for Windows/Mac/Linux (Native)
+  server                    Build for Node.js server
+  all                       Build for all platforms
+
+Examples:
+  lsharp create my-chat-app
+  lsharp build native       # Pure native C executable
+  lsharp build mobile
+  lsharp run native         # Run native app
+  lsharp build all
+
+Options:
+  --output, -o <dir>        Output directory (default: ./build)
+  --watch, -w               Watch for changes and rebuild
+  --verbose, -v             Verbose output
+  --help, -h                Show help
+  --version                 Show version
+`);
+  }
+
+  async create(projectName) {
+    if (!projectName) {
+      console.error('❌ Project name is required');
+      console.log('Usage: lsharp create <project-name>');
+      process.exit(1);
+    }
+
+    const projectDir = path.resolve(projectName);
+    
+    if (fs.existsSync(projectDir)) {
+      console.error(`❌ Directory ${projectName} already exists`);
+      process.exit(1);
+    }
+
+    console.log(`🚀 Creating L# project: ${projectName}`);
+    
+    // Create project structure
+    fs.mkdirSync(projectDir, { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'assets'), { recursive: true });
+
+    // Create main L# file
+    const mainLSCode = this.generateMainLSFile(projectName);
+    fs.writeFileSync(path.join(projectDir, 'src', 'main.ls'), mainLSCode);
+
+    // Create project config
+    const projectConfig = this.generateProjectConfig(projectName);
+    fs.writeFileSync(path.join(projectDir, 'lsharp.json'), JSON.stringify(projectConfig, null, 2));
+
+    // Create README
+    const readme = this.generateReadme(projectName);
+    fs.writeFileSync(path.join(projectDir, 'README.md'), readme);
+
+    console.log(`✅ Project ${projectName} created successfully!`);
+    console.log(`\nNext steps:`);
+    console.log(`  cd ${projectName}`);
+    console.log(`  lsharp run web`);
+    console.log(`  lsharp build mobile`);
+  }
+
+  async build(platform, options = {}) {
+    const outputDir = options.output || './build';
+    const verbose = options.verbose || false;
+
+    if (!platform) {
+      console.error('❌ Platform is required');
+      console.log('Available platforms:', this.platformTargets.getAllTargets().join(', '));
+      process.exit(1);
+    }
+
+    // Read L# source files
+    const srcDir = './src';
+    if (!fs.existsSync(srcDir)) {
+      console.error('❌ No src directory found. Run this command in an L# project.');
+      process.exit(1);
+    }
+
+    const mainFile = path.join(srcDir, 'main.ls');
+    if (!fs.existsSync(mainFile)) {
+      console.error('❌ No main.ls file found in src directory');
+      process.exit(1);
+    }
+
+    const lsCode = fs.readFileSync(mainFile, 'utf-8');
+
+    if (platform === 'all') {
+      console.log('🎯 Building for all platforms...');
+      const platforms = this.platformTargets.getAllTargets();
+      const results = [];
+
+      for (const p of platforms) {
+        try {
+          const result = await this.platformTargets.compile(lsCode, p, outputDir);
+          results.push(result);
+        } catch (error) {
+          console.error(`❌ Failed to build for ${p}:`, error.message);
+        }
+      }
+
+      console.log('\n📦 Build Summary:');
+      results.forEach(result => {
+        console.log(`  ✅ ${result.platform}: ${result.outputDir}`);
+      });
+
+      return results;
+    } else {
+      try {
+        const result = await this.platformTargets.compile(lsCode, platform, outputDir);
+        console.log(`\n📦 Build completed for ${platform}`);
+        console.log(`📁 Output: ${result.outputDir}`);
+        console.log(`🚀 Run: ${result.devCommand}`);
+        return result;
+      } catch (error) {
+        console.error(`❌ Build failed:`, error.message);
+        process.exit(1);
+      }
+    }
+  }
+
+  async run(platform, options = {}) {
+    console.log(`🏃 Running L# app on ${platform}...`);
+    
+    // First build the project
+    const result = await this.build(platform, options);
+    
+    // Then run it
+    try {
+      const cwd = result.outputDir;
+      console.log(`\n🎬 Starting ${platform} app...`);
+      
+      if (platform === 'native') {
+        console.log('🔨 Compiling native executable...');
+        execSync('./build.sh', { cwd, stdio: 'inherit' });
+        console.log('🚀 Running native application...');
+        execSync('./lsharp-app', { cwd, stdio: 'inherit' });
+      } else if (platform === 'mobile') {
+        console.log('📱 Starting mobile development server...');
+        execSync('npm install', { cwd, stdio: 'inherit' });
+        execSync('npx expo start', { cwd, stdio: 'inherit' });
+      } else if (platform === 'desktop') {
+        console.log('🖥️  Starting desktop app...');
+        execSync('npm install', { cwd, stdio: 'inherit' });
+        execSync('npm start', { cwd, stdio: 'inherit' });
+      } else if (platform === 'server') {
+        console.log('🚀 Starting server...');
+        execSync('npm install', { cwd, stdio: 'inherit' });
+        execSync('npm start', { cwd, stdio: 'inherit' });
+      }
+    } catch (error) {
+      console.error(`❌ Failed to run ${platform} app:`, error.message);
+      process.exit(1);
+    }
+  }
+
+  devices() {
+    console.log('📱 Available platforms and targets:\n');
+    
+    console.log('⚡ Native (Primary - Pure C):');
+    console.log('  • Linux (x64, arm64) - Native executable');
+    console.log('  • macOS (Intel, Apple Silicon) - Native executable');
+    console.log('  • Windows (x64, arm64) - Native executable');
+    console.log('  • No HTML/JavaScript/React dependencies');
+    console.log('  • Pure SDL2 + Cairo graphics');
+    console.log('  • Maximum performance\n');
+    
+    console.log('📱 Mobile (Native):');
+    console.log('  • iOS (Native Swift/Objective-C)');
+    console.log('  • Android (Native Java/Kotlin)');
+    console.log('  • Cross-compiled from L# to native code\n');
+    
+    console.log('🖥️  Desktop (Native):');
+    console.log('  • Windows native executable');
+    console.log('  • macOS native application');
+    console.log('  • Linux native binary');
+    console.log('  • No Electron - pure native\n');
+    
+    console.log('🚀 Server:');
+    console.log('  • Node.js (v16+)');
+    console.log('  • Docker containers');
+    console.log('  • Cloud platforms (AWS, GCP, Azure)');
+    
+    console.log('\n💡 L# compiles to native code like Flutter - completely independent!');
+  }
+
+  doctor() {
+    console.log('🔍 L# Doctor - Checking installation...\n');
+    
+    const checks = [
+      { name: 'Node.js', command: 'node --version', required: true },
+      { name: 'GCC/Clang', command: 'gcc --version', required: true },
+      { name: 'Make', command: 'make --version', required: true },
+      { name: 'pkg-config', command: 'pkg-config --version', required: true },
+      { name: 'SDL2', command: 'pkg-config --exists sdl2 && echo "installed"', required: true },
+      { name: 'Cairo', command: 'pkg-config --exists cairo && echo "installed"', required: true },
+      { name: 'Pango', command: 'pkg-config --exists pango && echo "installed"', required: true },
+      { name: 'Git', command: 'git --version', required: false },
+      { name: 'Docker', command: 'docker --version', required: false }
+    ];
+
+    let allGood = true;
+
+    checks.forEach(check => {
+      try {
+        const version = execSync(check.command, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+        console.log(`✅ ${check.name}: ${version}`);
+      } catch (error) {
+        if (check.required) {
+          console.log(`❌ ${check.name}: Not installed (REQUIRED)`);
+          allGood = false;
+        } else {
+          console.log(`⚠️  ${check.name}: Not installed (optional)`);
+        }
+      }
+    });
+
+    console.log('\n📋 Summary:');
+    if (allGood) {
+      console.log('✅ L# is ready to use!');
+      console.log('🚀 L# Native Compiler: Ready');
+      console.log('⚡ Pure C compilation: Enabled');
+      console.log('🎨 SDL2 + Cairo graphics: Available');
+    } else {
+      console.log('❌ Please install missing required dependencies');
+      console.log('\n📦 Install native dependencies:');
+      console.log('   Ubuntu/Debian: sudo apt-get install gcc make pkg-config libsdl2-dev libsdl2-ttf-dev libcairo2-dev libpango1.0-dev');
+      console.log('   macOS: brew install gcc make pkg-config sdl2 sdl2_ttf cairo pango');
+      console.log('   Arch: sudo pacman -S gcc make pkgconf sdl2 sdl2_ttf cairo pango');
+    }
+
+    console.log('\n📚 L# is completely independent - No HTML/JS/React dependencies!');
+    console.log('💬 Pure native performance like Flutter');
+  }
+
+  generateMainLSFile(projectName) {
+    return `// ${projectName} - L# Application
+// Cross-platform app that runs on web, mobile, desktop, and server
+
+import ui from "lsharp/ui";
+import state from "lsharp/state";
+import animations from "lsharp/animations";
+
+// Application state
+state appState = {
+  title: "${projectName}",
+  count: 0,
+  theme: "light"
+};
+
+// Main application component
+component App {
+  const [count, setCount] = state.useState(0);
+  const [theme, setTheme] = state.useState("light");
+
+  const increment = () => {
+    setCount(count + 1);
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light");
+  };
+
+  render {
+    <Container
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: theme === "light" ? "#f5f7fa" : "#1a1a1a",
+        color: theme === "light" ? "#333" : "#fff",
+        fontFamily: "system-ui, sans-serif",
+        transition: "all 0.3s ease"
+      }}
+    >
+      <Text
+        style={{
+          fontSize: "2.5rem",
+          fontWeight: "bold",
+          marginBottom: "2rem",
+          animation: animations.fadeInUp(600)
+        }}
+      >
+        Welcome to ${projectName}!
+      </Text>
+
+      <Text
+        style={{
+          fontSize: "1.2rem",
+          marginBottom: "2rem",
+          opacity: 0.8
+        }}
+      >
+        Built with L# - Cross-platform UI framework
+      </Text>
+
+      <Card
+        style={{
+          padding: "2rem",
+          borderRadius: "12px",
+          background: theme === "light" ? "#fff" : "#2d2d2d",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          animation: animations.fadeIn(800)
+        }}
+      >
+        <Text style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
+          Counter: {count}
+        </Text>
+
+        <Button
+          onClick={increment}
+          style={{
+            padding: "12px 24px",
+            fontSize: "1rem",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            marginRight: "1rem",
+            transition: "transform 0.2s ease"
+          }}
+          hoverStyle={{
+            transform: "scale(1.05)"
+          }}
+        >
+          Increment
+        </Button>
+
+        <Button
+          onClick={toggleTheme}
+          style={{
+            padding: "12px 24px",
+            fontSize: "1rem",
+            background: theme === "light" ? "#333" : "#fff",
+            color: theme === "light" ? "#fff" : "#333",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+        >
+          Toggle Theme
+        </Button>
+      </Card>
+
+      <Text
+        style={{
+          marginTop: "2rem",
+          fontSize: "0.9rem",
+          opacity: 0.6
+        }}
+      >
+        This app runs on Native • Mobile • Desktop • Server
+      </Text>
+      
+      <Text
+        style={{
+          marginTop: "0.5rem",
+          fontSize: "0.8rem",
+          opacity: 0.5
+        }}
+      >
+        No HTML • No JavaScript • No React • Pure L# Native
+      </Text>
+    </Container>
+  }
+}
+
+export default App;`;
+  }
+
+  generateProjectConfig(projectName) {
+    return {
+      name: projectName,
+      version: "1.0.0",
+      description: `${projectName} - Built with L# (Independent like Flutter)`,
+      main: "src/main.ls",
+      platforms: {
+        native: {
+          enabled: true,
+          outputDir: "build/native",
+          description: "Pure C executable - No web dependencies"
+        },
+        mobile: {
+          enabled: true,
+          outputDir: "build/mobile",
+          description: "Native iOS/Android"
+        },
+        desktop: {
+          enabled: true,
+          outputDir: "build/desktop",
+          description: "Native Windows/Mac/Linux"
+        },
+        server: {
+          enabled: true,
+          outputDir: "build/server",
+          description: "Node.js server"
+        }
+      },
+      build: {
+        outputDir: "build",
+        minify: true,
+        sourceMaps: true,
+        target: "native"
+      }
+    };
+  }
+
+  generateReadme(projectName) {
+    return `# ${projectName}
+
+A cross-platform application built with L# - the Flutter for JavaScript.
+
+## 🚀 Quick Start
+
+\`\`\`bash
+# Run native (Pure C - No web dependencies)
+lsharp run native
+
+# Run on mobile
+lsharp run mobile
+
+# Run on desktop
+lsharp run desktop
+
+# Run server
+lsharp run server
+\`\`\`
+
+## 🏗️ Build for Production
+
+\`\`\`bash
+# Build for all platforms
+lsharp build all
+
+# Build for specific platform
+lsharp build native    # Pure C executable
+lsharp build mobile    # Native iOS/Android
+lsharp build desktop   # Native Windows/Mac/Linux
+lsharp build server    # Node.js server
+\`\`\`
+
+## 📱 Platforms
+
+- **Native**: Pure C executable with SDL2 + Cairo (No HTML/JS/React)
+- **Mobile**: Native iOS (Swift) and Android (Kotlin)
+- **Desktop**: Native Windows/Mac/Linux executables
+- **Server**: Node.js/Express server with SSR
+
+## ⚡ Why L#?
+
+L# is completely independent like Flutter:
+- ✅ No HTML, JavaScript, or React dependencies
+- ✅ Compiles to pure native code
+- ✅ Maximum performance
+- ✅ Cross-platform from single codebase
+- ✅ Beautiful UI like MoudeStyle design
+
+## 📁 Project Structure
+
+\`\`\`
+${projectName}/
+├── src/
+│   └── main.ls          # Main L# application
+├── assets/              # Images, fonts, etc.
+├── build/               # Built applications
+├── lsharp.json          # L# project configuration
+└── README.md
+\`\`\`
+
+## 🛠️ Development
+
+\`\`\`bash
+# Check L# installation
+lsharp doctor
+
+# List available devices
+lsharp devices
+
+# Get help
+lsharp help
+\`\`\`
+
+## 📚 Learn More
+
+- L# is completely independent - No web dependencies!
+- Pure native performance like Flutter
+- Compiles to C, Swift, Kotlin, and more
+
+Built with ❤️ using L# - The Independent UI Framework`;
+  }
+}
+
+// CLI Entry Point
+if (require.main === module) {
+  const cli = new LSharpCLI();
+  const args = process.argv.slice(2);
+  const command = args[0];
+  const options = {};
+
+  // Parse options
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--output' || args[i] === '-o') {
+      options.output = args[++i];
+    } else if (args[i] === '--verbose' || args[i] === '-v') {
+      options.verbose = true;
+    } else if (args[i] === '--watch' || args[i] === '-w') {
+      options.watch = true;
+    } else if (args[i] === '--help' || args[i] === '-h') {
+      cli.showHelp();
+      process.exit(0);
+    } else if (args[i] === '--version') {
+      console.log(cli.version);
+      process.exit(0);
+    }
+  }
+
+  // Execute commands
+  switch (command) {
+    case 'create':
+      cli.create(args[1]);
+      break;
+    case 'build':
+      cli.build(args[1], options);
+      break;
+    case 'run':
+      cli.run(args[1], options);
+      break;
+    case 'devices':
+      cli.devices();
+      break;
+    case 'doctor':
+      cli.doctor();
+      break;
+    case 'help':
+    case undefined:
+      cli.showHelp();
+      break;
+    default:
+      console.error('❌ Unknown command: ' + command);
+      cli.showHelp();
+      process.exit(1);
+  }
+}
+
+module.exports = LSharpCLI;

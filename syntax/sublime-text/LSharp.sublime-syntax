@@ -1,0 +1,213 @@
+%YAML 1.2
+---
+name: L#
+file_extensions: [ls, lsharp]
+scope: source.lsharp
+
+contexts:
+  main:
+    - include: comments
+    - include: keywords
+    - include: module-keywords
+    - include: ui-keywords
+    - include: state-keywords
+    - include: lifecycle-keywords
+    - include: event-keywords
+    - include: style-keywords
+    - include: layout-keywords
+    - include: animation-keywords
+    - include: jsx-tags
+    - include: strings
+    - include: numbers
+    - include: operators
+    - include: functions
+    - include: types
+    - include: constants
+
+  comments:
+    - match: '//'
+      scope: punctuation.definition.comment.lsharp
+      push:
+        - meta_scope: comment.line.double-slash.lsharp
+        - match: $
+          pop: true
+    - match: '/\*'
+      scope: punctuation.definition.comment.begin.lsharp
+      push:
+        - meta_scope: comment.block.lsharp
+        - match: '\*/'
+          scope: punctuation.definition.comment.end.lsharp
+          pop: true
+
+  keywords:
+    - match: '\b(if|else|elif|match|case|for|while|loop|break|continue|return|yield|await|async)\b'
+      scope: keyword.control.lsharp
+    - match: '\b(let|const|var|fn|func|function|class|struct|enum|interface|trait|impl|type|alias)\b'
+      scope: keyword.other.lsharp
+    - match: '\b(pub|priv|protected|static|final|abstract|virtual|override|mut|ref|unsafe|extern|dyn|macro|derive)\b'
+      scope: storage.modifier.lsharp
+    - match: '\b(new|delete|sizeof|typeof|instanceof|as|in|is)\b'
+      scope: keyword.operator.new.lsharp
+
+  module-keywords:
+    - match: '\b(import|export|deport|report)\b'
+      scope: keyword.control.import.lsharp
+    - match: '\b(from|direct|use|as)\b'
+      scope: keyword.control.from.lsharp
+
+  ui-keywords:
+    - match: '\b(component|render|props)\b'
+      scope: storage.type.component.lsharp
+    - match: '\b(Container|Card|Button|Input|Text|Image|Icon|Canvas|GLCanvas|Grid|Stack|Box|Modal|Tooltip|TextArea|Checkbox|Radio|Switch|Slider|Dropdown)\b'
+      scope: entity.name.tag.component.lsharp
+
+  state-keywords:
+    - match: '\b(useState|useEffect|useContext|useRef|useMemo|useCallback|useReducer|useLayoutEffect|useImperativeHandle|useDebugValue)\b'
+      scope: support.function.hook.lsharp
+    - match: '\b(state|computed)\b'
+      scope: keyword.other.state.lsharp
+
+  lifecycle-keywords:
+    - match: '\b(onMount|onUnmount|onUpdate|beforeRender|afterRender|shouldUpdate|onError)\b'
+      scope: support.function.lifecycle.lsharp
+
+  event-keywords:
+    - match: '\b(onClick|onChange|onSubmit|onInput|onFocus|onBlur|onKeyDown|onKeyUp|onKeyPress|onMouseDown|onMouseUp|onMouseMove|onMouseEnter|onMouseLeave|onMouseOver|onMouseOut|onWheel|onScroll|onDrag|onDragStart|onDragEnd|onDragEnter|onDragLeave|onDragOver|onDrop|onTouchStart|onTouchMove|onTouchEnd|onTouchCancel)\b'
+      scope: support.function.event.lsharp
+
+  style-keywords:
+    - match: '\b(style|className|width|height|margin|padding|border|borderRadius|background|backgroundColor|color|fontSize|fontWeight|fontFamily|display|position|top|right|bottom|left|zIndex|opacity|transform|transition|animation|boxShadow|textShadow|overflow|cursor)\b'
+      scope: support.type.property-name.css.lsharp
+    - match: '\b(linearGradient|radialGradient|conicGradient)\b'
+      scope: support.function.gradient.lsharp
+    - match: '\b(translate|translateX|translateY|scale|scaleX|scaleY|rotate|rotateX|rotateY|skew|skewX|skewY|matrix|perspective)\b'
+      scope: support.function.transform.lsharp
+    - match: '\b(blur|brightness|contrast|grayscale|hueRotate|invert|saturate|sepia|dropShadow)\b'
+      scope: support.function.filter.lsharp
+
+  layout-keywords:
+    - match: '\b(layout|flex|grid|stack|absolute|relative|fixed|sticky)\b'
+      scope: support.type.layout.lsharp
+    - match: '\b(flexDirection|flexWrap|flexGrow|flexShrink|flexBasis|alignItems|alignContent|alignSelf|justifyContent|justifyItems|justifySelf)\b'
+      scope: support.type.property-name.flexbox.lsharp
+    - match: '\b(gridTemplateColumns|gridTemplateRows|gridTemplateAreas|gridColumn|gridRow|gridArea|gridGap|gridColumnGap|gridRowGap|gridAutoFlow|gridAutoColumns|gridAutoRows)\b'
+      scope: support.type.property-name.grid.lsharp
+    - match: '\b(row|column|wrap|nowrap|center|start|end|stretch|baseline|space-between|space-around|space-evenly)\b'
+      scope: support.constant.layout-value.lsharp
+
+  animation-keywords:
+    - match: '\b(animation|keyframes|transition)\b'
+      scope: support.type.animation.lsharp
+    - match: '\b(ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end)\b'
+      scope: support.constant.timing-function.lsharp
+    - match: '\b(infinite|normal|reverse|alternate|alternate-reverse|forwards|backwards|both|running|paused)\b'
+      scope: support.constant.animation-value.lsharp
+
+  jsx-tags:
+    - match: '(<)([A-Z][a-zA-Z0-9]*)'
+      captures:
+        1: punctuation.definition.tag.begin.jsx.lsharp
+        2: entity.name.tag.jsx.lsharp
+      push:
+        - meta_scope: meta.tag.jsx.lsharp
+        - match: '(/?>)'
+          captures:
+            1: punctuation.definition.tag.end.jsx.lsharp
+          pop: true
+        - include: jsx-attributes
+    - match: '(</)([A-Z][a-zA-Z0-9]*)(>)'
+      captures:
+        1: punctuation.definition.tag.begin.jsx.lsharp
+        2: entity.name.tag.jsx.lsharp
+        3: punctuation.definition.tag.end.jsx.lsharp
+
+  jsx-attributes:
+    - match: '\b[a-zA-Z_][a-zA-Z0-9_-]*(?=\s*=)'
+      scope: entity.other.attribute-name.jsx.lsharp
+    - match: '\{'
+      push:
+        - meta_scope: meta.embedded.expression.jsx.lsharp
+        - match: '\}'
+          pop: true
+        - include: main
+
+  strings:
+    - match: '"'
+      scope: punctuation.definition.string.begin.lsharp
+      push:
+        - meta_scope: string.quoted.double.lsharp
+        - match: '\\.'
+          scope: constant.character.escape.lsharp
+        - match: '"'
+          scope: punctuation.definition.string.end.lsharp
+          pop: true
+    - match: "'"
+      scope: punctuation.definition.string.begin.lsharp
+      push:
+        - meta_scope: string.quoted.single.lsharp
+        - match: '\\.'
+          scope: constant.character.escape.lsharp
+        - match: "'"
+          scope: punctuation.definition.string.end.lsharp
+          pop: true
+    - match: '`'
+      scope: punctuation.definition.string.begin.lsharp
+      push:
+        - meta_scope: string.template.lsharp
+        - match: '\$\{'
+          push:
+            - meta_scope: meta.embedded.expression.lsharp
+            - match: '\}'
+              pop: true
+            - include: main
+        - match: '`'
+          scope: punctuation.definition.string.end.lsharp
+          pop: true
+
+  numbers:
+    - match: '\b0[xX][0-9a-fA-F]+\b'
+      scope: constant.numeric.hex.lsharp
+    - match: '\b0[bB][01]+\b'
+      scope: constant.numeric.binary.lsharp
+    - match: '\b0[oO][0-7]+\b'
+      scope: constant.numeric.octal.lsharp
+    - match: '\b[0-9]+\.[0-9]+([eE][+-]?[0-9]+)?\b'
+      scope: constant.numeric.float.lsharp
+    - match: '\b[0-9]+\b'
+      scope: constant.numeric.integer.lsharp
+
+  operators:
+    - match: '\+|\-|\*|\/|%|\*\*'
+      scope: keyword.operator.arithmetic.lsharp
+    - match: '==|!=|<|>|<=|>=|===|!=='
+      scope: keyword.operator.comparison.lsharp
+    - match: '&&|\|\||!|\?\?|\?\.'
+      scope: keyword.operator.logical.lsharp
+    - match: '&|\||\^|~|<<|>>'
+      scope: keyword.operator.bitwise.lsharp
+    - match: '=|\+=|\-=|\*=|\/=|%=|&=|\|=|\^=|<<=|>>='
+      scope: keyword.operator.assignment.lsharp
+    - match: '=>|->|::'
+      scope: keyword.operator.arrow.lsharp
+    - match: '\.\.\.'
+      scope: keyword.operator.spread.lsharp
+
+  functions:
+    - match: '\b([a-z_][a-zA-Z0-9_]*)\s*(?=\()'
+      scope: entity.name.function.lsharp
+    - match: '\b(printf|scanf|malloc|free|memcpy|strlen|strcmp|glBegin|glEnd|glVertex3f|glColor3f)\b'
+      scope: support.function.builtin.lsharp
+
+  types:
+    - match: '\b(int|float|double|bool|string|char|byte|void|any|never)\b'
+      scope: storage.type.primitive.lsharp
+    - match: '\b[A-Z][a-zA-Z0-9_]*\b'
+      scope: entity.name.type.lsharp
+
+  constants:
+    - match: '\b(true|false)\b'
+      scope: constant.language.boolean.lsharp
+    - match: '\b(null|nil|undefined)\b'
+      scope: constant.language.null.lsharp
+    - match: '\b(this|self|super|base)\b'
+      scope: constant.language.lsharp

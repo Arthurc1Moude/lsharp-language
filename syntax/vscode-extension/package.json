@@ -1,0 +1,92 @@
+{
+  "name": "lsharp-language-support",
+  "displayName": "L# Language Support",
+  "description": "Syntax highlighting and language support for L# (L-Sharp) programming language",
+  "version": "1.0.0",
+  "publisher": "lsharp",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Themes"
+  ],
+  "keywords": [
+    "lsharp",
+    "l#",
+    "ui",
+    "native",
+    "component"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "lsharp",
+        "aliases": ["L#", "LSharp", "lsharp"],
+        "extensions": [".ls", ".lsharp"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/file-icon-light.svg",
+          "dark": "./icons/file-icon-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lsharp",
+        "scopeName": "source.lsharp",
+        "path": "./syntaxes/lsharp.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "lsharp",
+        "path": "./snippets/lsharp.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "L# Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/lsharp-dark.json"
+      },
+      {
+        "label": "L# Light",
+        "uiTheme": "vs",
+        "path": "./themes/lsharp-light.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[lsharp]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true,
+        "editor.semanticHighlighting.enabled": true,
+        "editor.bracketPairColorization.enabled": true
+      }
+    }
+  },
+  "activationEvents": [
+    "onLanguage:lsharp"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^16.0.0",
+    "@types/vscode": "^1.60.0",
+    "typescript": "^4.5.0",
+    "vsce": "^2.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lsharp/lsharp-language"
+  },
+  "license": "MIT"
+}

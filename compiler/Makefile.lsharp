@@ -1,0 +1,42 @@
+# L# Compiler Makefile
+# Builds the L# to C compiler
+# This compiler transforms .ls files to pure C code
+
+CC = gcc
+CFLAGS = -std=c99 -Wall -Wextra -O2
+LIBS = -lm
+
+# Compiler executable
+LSHARP_COMPILER = lsharp-compiler
+
+# Source files
+COMPILER_SRC = lsharp_to_c.c
+
+all: $(LSHARP_COMPILER)
+	@echo "✅ L# Compiler built successfully!"
+	@echo "🔨 Usage: ./$(LSHARP_COMPILER) input.ls output.c"
+
+$(LSHARP_COMPILER): $(COMPILER_SRC)
+	@echo "🔨 Building L# to C compiler..."
+	$(CC) $(CFLAGS) -o $(LSHARP_COMPILER) $(COMPILER_SRC) $(LIBS)
+
+clean:
+	@echo "🧹 Cleaning..."
+	rm -f $(LSHARP_COMPILER)
+
+test: $(LSHARP_COMPILER)
+	@echo "🧪 Testing L# compiler..."
+	@echo "// Test L# code" > test.ls
+	@echo "component TestApp {" >> test.ls
+	@echo "  render { <Text>Hello</Text> }" >> test.ls
+	@echo "}" >> test.ls
+	./$(LSHARP_COMPILER) test.ls test.c
+	@rm -f test.ls test.c
+	@echo "✅ Compiler test passed!"
+
+install: $(LSHARP_COMPILER)
+	@echo "📦 Installing L# compiler..."
+	cp $(LSHARP_COMPILER) ../bin/
+	@echo "✅ Installed to ../bin/$(LSHARP_COMPILER)"
+
+.PHONY: all clean test install

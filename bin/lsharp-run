@@ -1,0 +1,34 @@
+#!/bin/bash
+# L# Native Runner
+# Runs .ls files DIRECTLY to native windows
+# L# → L# → NATIVE (no C compilation!)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERPRETER="$SCRIPT_DIR/../runtime/lsharp-native"
+
+if [ ! -f "$INTERPRETER" ]; then
+    echo "❌ L# native interpreter not found"
+    echo "🔨 Building interpreter..."
+    cd "$SCRIPT_DIR/../runtime"
+    gcc -o lsharp-native lsharp-native-interpreter.c `pkg-config --cflags --libs sdl2` -lm
+    if [ $? -ne 0 ]; then
+        echo "❌ Build failed"
+        exit 1
+    fi
+    echo "✅ Interpreter built"
+fi
+
+if [ $# -eq 0 ]; then
+    echo "L# Native Runner v1.0"
+    echo "Usage: lsharp-run <file.ls>"
+    echo ""
+    echo "Runs L# files DIRECTLY to native windows"
+    echo "L# → L# → NATIVE (no C compilation!)"
+    exit 1
+fi
+
+echo "🚀 Running L# file: $1"
+echo "⚡ L# → L# → NATIVE"
+echo ""
+
+"$INTERPRETER" "$1"
