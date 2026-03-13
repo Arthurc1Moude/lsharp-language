@@ -5,10 +5,11 @@
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](https://github.com/Arthurc1Moude/lsharp-language)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/Arthurc1Moude/lsharp-language)
+[![Company](https://img.shields.io/badge/Company-Moude%20AI%20LLC-brightgreen.svg)](https://github.com/Arthurc1Moude)
 
 L# is a modern programming language designed for building beautiful native desktop applications with React-like syntax but without HTML, CSS, JavaScript, or any web dependencies. Like Flutter, but for native desktop development.
 
-> **⚠️ IMPORTANT**: This repository is for viewing and documentation purposes only. The L# language is proprietary software owned by Arthur C1 Moude. No cloning, forking, modification, or redistribution is permitted without explicit written permission.
+> **⚠️ IMPORTANT**: This repository is for viewing and documentation purposes only. The L# language is proprietary software owned by Moude AI LLC. No cloning, forking, modification, or redistribution is permitted without explicit written permission.
 
 ## 🚀 Features
 
@@ -251,9 +252,9 @@ Improvement: 7000x smaller, 20x faster!
 
 ## 📄 License & Copyright
 
-**© 2025 Arthur C1 Moude. All Rights Reserved.**
+**© 2025 Moude AI LLC. All Rights Reserved.**
 
-This software is proprietary and confidential. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited without explicit written permission from the copyright holder.
+This software is proprietary and confidential. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited without explicit written permission from Moude AI LLC.
 
 **You may NOT:**
 - Clone or fork this repository
@@ -356,7 +357,8 @@ L# has been submitted to the following programming language platforms and regist
 
 ## 👥 Author & Contact
 
-**Arthur C1 Moude**
+**Moude AI LLC**
+- Founder: Arthur C1 Moude
 - GitHub: [@Arthurc1Moude](https://github.com/Arthurc1Moude)
 - Email: [aimoude149@gmail.com](mailto:aimoude149@gmail.com)
 - Repository: [lsharp-language](https://github.com/Arthurc1Moude/lsharp-language)
@@ -372,7 +374,7 @@ Please contact via email with subject line: `[L#] Your Topic`
 
 ## ⚠️ Disclaimer
 
-This repository is maintained for documentation and showcase purposes. The actual compiler binaries and runtime are distributed separately under commercial licenses. Educational use is permitted with proper attribution.
+This repository is maintained by Moude AI LLC for documentation and showcase purposes. The actual compiler binaries and runtime are distributed separately under commercial licenses. Educational use is permitted with proper attribution to Moude AI LLC.
 
 ---
 
